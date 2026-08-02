@@ -1,33 +1,150 @@
+local Meow = {}
+
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 
 local CONFIG_FOLDER = CONFIG_FOLDER or "MeowConfigs"
 local CONFIG_FILE = CONFIG_FILE or (CONFIG_FOLDER .. "/default.json")
+local KEYBIND_FILE = CONFIG_FOLDER .. "/keybind.txt"
+
+local Themes = {
+	DefaultTheme = {
+		Primary = Color3.fromRGB(180, 120, 255),
+		Secondary = Color3.fromRGB(120, 80, 200),
+		SchemeColor = Color3.fromRGB(180, 120, 255),
+		Window1 = Color3.fromRGB(25, 25, 30),
+		Window2 = Color3.fromRGB(18, 18, 22),
+		Window3 = Color3.fromRGB(30, 30, 36),
+		Button1 = Color3.fromRGB(40, 40, 48),
+		Button2 = Color3.fromRGB(55, 55, 65),
+		Button3 = Color3.fromRGB(70, 50, 90),
+		Stroke = Color3.fromRGB(60, 60, 70),
+		StrokeHover = Color3.fromRGB(180, 120, 255),
+		TextPrimary = Color3.fromRGB(240, 240, 245),
+		TextDim = Color3.fromRGB(150, 150, 160),
+	},
+}
+
+local function Tween(obj, props, time, style)
+	local tweenInfo = TweenInfo.new(time or 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	local tw = TweenService:Create(obj, tweenInfo, props)
+	tw:Play()
+	return tw
+end
+
+local function ensureConfigFolder()
+	if isfolder and makefolder then
+		if not isfolder(CONFIG_FOLDER) then
+			pcall(makefolder, CONFIG_FOLDER)
+		end
+	end
+end
+
+local function loadKeybind()
+	if readfile and isfile and isfile(KEYBIND_FILE) then
+		local ok, name = pcall(readfile, KEYBIND_FILE)
+		if ok and name and Enum.KeyCode[name] then
+			return Enum.KeyCode[name]
+		end
+	end
+	return Enum.KeyCode.RightControl
+end
+
+local function saveKeybind(keyCode)
+	if writefile then
+		pcall(writefile, KEYBIND_FILE, keyCode.Name)
+	end
+end
+
+local function StringToKeyCode(str)
+	if typeof(str) == "EnumItem" then return str end
+	if type(str) == "string" and Enum.KeyCode[str] then
+		return Enum.KeyCode[str]
+	end
+	return Enum.KeyCode.Unknown
+end
+
+function Meow:DraggingEnabled(dragHandle, dragTarget)
+	dragTarget = dragTarget or dragHandle
+	local dragging, dragStart, startPos
+	dragHandle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = dragTarget.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			dragTarget.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+local function CreatePickerWindow(T, name, currentColor, parent, callback)
+	local gui = Instance.new("Frame")
+	gui.Name = "ColorPickerWindow"
+	gui.Size = UDim2.fromOffset(200, 150)
+	gui.BackgroundColor3 = T.Window1
+	gui.BorderSizePixel = 0
+	gui.ZIndex = 200
+	gui.Parent = parent
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = T.Stroke
+	stroke.Parent = gui
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0, 24)
+	title.BackgroundTransparency = 1
+	title.Text = name
+	title.TextColor3 = T.TextPrimary
+	title.Font = Enum.Font.SourceSans
+	title.TextSize = 14
+	title.Parent = gui
+	local close = Instance.new("TextButton")
+	close.Size = UDim2.fromOffset(20, 20)
+	close.Position = UDim2.new(1, -24, 0, 2)
+	close.Text = "X"
+	close.BackgroundColor3 = T.Button1
+	close.TextColor3 = T.TextPrimary
+	close.Parent = gui
+	close.MouseButton1Click:Connect(function()
+		gui:Destroy()
+	end)
+	return {
+		guiRef = gui,
+		destroy = function() gui:Destroy() end,
+		setColor = function(c) end,
+	}
+end
+
+function Meow.Prompt(lib, title, text, yesText, noText, onResult)
+	if onResult then onResult(true) end
+end
 
 function Meow.CreateLib(title, themeName)
 	local T = Themes[themeName] or Themes.DefaultTheme
-
 	local toggleKey = loadKeybind()
 	local listeningForKey = false
-
 	local ScreenGui = Instance.new("ScreenGui")
 	ScreenGui.Name = "Meow" .. tostring(math.random(10000, 99999))
 	ScreenGui.ResetOnSpawn = false
 	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 	ScreenGui.DisplayOrder = 2147483647
 	local ok, err = pcall(function()
-		local parent = (gethui and gethui())
-			or (syn and syn.protect_gui and game:GetService("CoreGui"))
-			or game:GetService("CoreGui")
-
+		local parent = (gethui and gethui()) or (syn and syn.protect_gui and game:GetService("CoreGui")) or game:GetService("CoreGui")
 		ScreenGui.Parent = parent
-
 		if syn and syn.protect_gui then
 			syn.protect_gui(ScreenGui)
 		end
 	end)
-
 	if not ok then
 		local ok2 = pcall(function()
 			ScreenGui.Parent = game.Players.LocalPlayer.PlayerGui
@@ -37,12 +154,9 @@ function Meow.CreateLib(title, themeName)
 			return
 		end
 	end
-
 	ensureConfigFolder()
-
 	local Elements = {}
 	local ElementOrder = {}
-
 	local function RegisterElement(elementName, kind, obj)
 		if Elements[elementName] then
 			warn("[Meow] Elemento duplicado registrado: " .. tostring(elementName))
@@ -50,7 +164,6 @@ function Meow.CreateLib(title, themeName)
 		Elements[elementName] = { kind = kind, obj = obj }
 		table.insert(ElementOrder, elementName)
 	end
-
 	local Main = Instance.new("Frame")
 	Main.Name = "Main"
 	Main.Parent = ScreenGui
@@ -61,12 +174,10 @@ function Meow.CreateLib(title, themeName)
 	Main.BorderSizePixel = 0
 	Main.ClipsDescendants = false
 	Main.ZIndex = 5
-
 	local MainScale = Instance.new("UIScale")
 	MainScale.Scale = 1
 	MainScale.Name = "Scale"
 	MainScale.Parent = Main
-
 	local MainStroke = Instance.new("UIStroke")
 	MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	MainStroke.Color = T.Stroke
@@ -74,7 +185,6 @@ function Meow.CreateLib(title, themeName)
 	MainStroke.Thickness = 1
 	MainStroke.Name = "Stroke"
 	MainStroke.Parent = Main
-
 	local MainShadow = Instance.new("ImageLabel")
 	MainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
 	MainShadow.BackgroundTransparency = 1
@@ -88,7 +198,6 @@ function Meow.CreateLib(title, themeName)
 	MainShadow.SliceCenter = Rect.new(40, 40, 260, 260)
 	MainShadow.ZIndex = 4
 	MainShadow.Parent = Main
-
 	local TrimLine = Instance.new("Frame")
 	TrimLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	TrimLine.BackgroundTransparency = 0
@@ -98,13 +207,11 @@ function Meow.CreateLib(title, themeName)
 	TrimLine.Size = UDim2.new(1, 0, 0, 1)
 	TrimLine.ZIndex = 64
 	TrimLine.Parent = Main
-
 	local TrimGradient = Instance.new("UIGradient")
 	TrimGradient.Color = ColorSequence.new(T.Primary, T.Secondary)
 	TrimGradient.Enabled = true
 	TrimGradient.Rotation = 0
 	TrimGradient.Parent = TrimLine
-
 	local Header = Instance.new("Frame")
 	Header.Name = "Header"
 	Header.Parent = Main
@@ -114,14 +221,12 @@ function Meow.CreateLib(title, themeName)
 	Header.Size = UDim2.new(1, 0, 0, 28)
 	Header.ZIndex = 50
 	Header.ClipsDescendants = true
-
 	local HeaderStroke = Instance.new("UIStroke")
 	HeaderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	HeaderStroke.Color = T.Stroke
 	HeaderStroke.LineJoinMode = Enum.LineJoinMode.Round
 	HeaderStroke.Thickness = 1
 	HeaderStroke.Parent = Header
-
 	local HeaderFade = Instance.new("Frame")
 	HeaderFade.BackgroundColor3 = T.Window1
 	HeaderFade.BackgroundTransparency = 1
@@ -132,7 +237,6 @@ function Meow.CreateLib(title, themeName)
 	HeaderFade.Visible = false
 	HeaderFade.ZIndex = 60
 	HeaderFade.Parent = Header
-
 	local Title = Instance.new("TextLabel")
 	Title.Parent = Header
 	Title.BackgroundTransparency = 1
@@ -147,11 +251,9 @@ function Meow.CreateLib(title, themeName)
 	Title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	Title.TextStrokeTransparency = 0.8
 	Title.ZIndex = 52
-
 	local TitlePad = Instance.new("UIPadding")
 	TitlePad.PaddingLeft = UDim.new(0, 4)
 	TitlePad.Parent = Title
-
 	local WindowIcon = Instance.new("ImageLabel")
 	WindowIcon.BackgroundTransparency = 1
 	WindowIcon.BorderSizePixel = 0
@@ -162,7 +264,6 @@ function Meow.CreateLib(title, themeName)
 	WindowIcon.Size = UDim2.fromOffset(22, 22)
 	WindowIcon.ZIndex = 52
 	WindowIcon.Parent = Header
-
 	local KeybindBtn = Instance.new("TextButton")
 	KeybindBtn.Name = "KeybindBtn"
 	KeybindBtn.Parent = Header
@@ -177,18 +278,15 @@ function Meow.CreateLib(title, themeName)
 	KeybindBtn.TextSize = 13
 	KeybindBtn.AutoButtonColor = false
 	KeybindBtn.ZIndex = 52
-
 	local KeybindBtnCorner = Instance.new("UICorner")
 	KeybindBtnCorner.CornerRadius = UDim.new(0, 2)
 	KeybindBtnCorner.Parent = KeybindBtn
-
 	local KeybindBtnStroke = Instance.new("UIStroke")
 	KeybindBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	KeybindBtnStroke.Color = T.Stroke
 	KeybindBtnStroke.LineJoinMode = Enum.LineJoinMode.Round
 	KeybindBtnStroke.Thickness = 1
 	KeybindBtnStroke.Parent = KeybindBtn
-
 	local Close = Instance.new("TextButton")
 	Close.Parent = Header
 	Close.BackgroundColor3 = T.Button1
@@ -199,18 +297,15 @@ function Meow.CreateLib(title, themeName)
 	Close.Text = ""
 	Close.AutoButtonColor = false
 	Close.ZIndex = 52
-
 	local CloseCorner = Instance.new("UICorner")
 	CloseCorner.CornerRadius = UDim.new(0, 2)
 	CloseCorner.Parent = Close
-
 	local CloseStroke = Instance.new("UIStroke")
 	CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	CloseStroke.Color = T.Stroke
 	CloseStroke.LineJoinMode = Enum.LineJoinMode.Round
 	CloseStroke.Thickness = 1
 	CloseStroke.Parent = Close
-
 	local CloseIcon = Instance.new("ImageLabel")
 	CloseIcon.Active = false
 	CloseIcon.BackgroundTransparency = 1
@@ -221,12 +316,10 @@ function Meow.CreateLib(title, themeName)
 	CloseIcon.Size = UDim2.fromScale(1, 1)
 	CloseIcon.ZIndex = 52
 	CloseIcon.Parent = Close
-
 	local CloseIconGradient = Instance.new("UIGradient")
 	CloseIconGradient.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 	CloseIconGradient.Rotation = 90
 	CloseIconGradient.Parent = CloseIcon
-
 	Close.MouseEnter:Connect(function()
 		Tween(Close, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 		Tween(CloseStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -268,7 +361,6 @@ function Meow.CreateLib(title, themeName)
 		if animCon then animCon:Disconnect() end
 		ScreenGui:Destroy()
 	end)
-
 	KeybindBtn.MouseEnter:Connect(function()
 		if not listeningForKey then
 			Tween(KeybindBtn, { BackgroundColor3 = T.Button2 }, 0.2, 2)
@@ -290,7 +382,6 @@ function Meow.CreateLib(title, themeName)
 			TextColor3 = T.TextPrimary,
 		}, 0.15, 2)
 	end)
-
 	local SideBar = Instance.new("Frame")
 	SideBar.Name = "SideBar"
 	SideBar.Parent = Main
@@ -300,14 +391,12 @@ function Meow.CreateLib(title, themeName)
 	SideBar.Position = UDim2.fromOffset(0, 28)
 	SideBar.Size = UDim2.new(0, 125, 1, -28)
 	SideBar.ZIndex = 50
-
 	local SideBarStroke = Instance.new("UIStroke")
 	SideBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	SideBarStroke.Color = T.Stroke
 	SideBarStroke.LineJoinMode = Enum.LineJoinMode.Round
 	SideBarStroke.Thickness = 1
 	SideBarStroke.Parent = SideBar
-
 	local TabMenu = Instance.new("ScrollingFrame")
 	TabMenu.Name = "TabMenu"
 	TabMenu.Parent = SideBar
@@ -325,7 +414,6 @@ function Meow.CreateLib(title, themeName)
 	TabMenu.Size = UDim2.new(1, -2, 1, -2)
 	TabMenu.TopImage = "rbxassetid://9416839567"
 	TabMenu.ZIndex = 51
-
 	local TabMenuLayout = Instance.new("UIListLayout")
 	TabMenuLayout.FillDirection = Enum.FillDirection.Vertical
 	TabMenuLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -333,11 +421,9 @@ function Meow.CreateLib(title, themeName)
 	TabMenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	TabMenuLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 	TabMenuLayout.Parent = TabMenu
-
 	local TabMenuPadding = Instance.new("UIPadding")
 	TabMenuPadding.PaddingTop = UDim.new(0, 5)
 	TabMenuPadding.Parent = TabMenu
-
 	local Content = Instance.new("Frame")
 	Content.Name = "Content"
 	Content.Parent = Main
@@ -348,16 +434,13 @@ function Meow.CreateLib(title, themeName)
 	Content.Size = UDim2.new(1, -126, 1, -28)
 	Content.ZIndex = 30
 	Content.ClipsDescendants = true
-
 	local ContentStroke = Instance.new("UIStroke")
 	ContentStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	ContentStroke.Color = T.Stroke
 	ContentStroke.LineJoinMode = Enum.LineJoinMode.Round
 	ContentStroke.Thickness = 1
 	ContentStroke.Parent = Content
-
 	local Minimized = false
-
 	local MobileToggle
 	if UserInputService.TouchEnabled then
 		MobileToggle = Instance.new("ImageButton")
@@ -373,18 +456,15 @@ function Meow.CreateLib(title, themeName)
 		MobileToggle.ScaleType = Enum.ScaleType.Fit
 		MobileToggle.AutoButtonColor = false
 		MobileToggle.ZIndex = 1000
-
 		local MobileToggleCorner = Instance.new("UICorner")
 		MobileToggleCorner.CornerRadius = UDim.new(0, 8)
 		MobileToggleCorner.Parent = MobileToggle
-
 		local MobileToggleStroke = Instance.new("UIStroke")
 		MobileToggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		MobileToggleStroke.Color = T.Stroke
 		MobileToggleStroke.LineJoinMode = Enum.LineJoinMode.Round
 		MobileToggleStroke.Thickness = 1
 		MobileToggleStroke.Parent = MobileToggle
-
 		MobileToggle.MouseButton1Click:Connect(function()
 			Minimized = not Minimized
 			Main.Visible = not Minimized
@@ -393,10 +473,8 @@ function Meow.CreateLib(title, themeName)
 				Tween(MobileToggleStroke, { Color = T.Stroke }, 0.15, 2)
 			end)
 		end)
-
 		Meow:DraggingEnabled(MobileToggle)
 	end
-
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if listeningForKey then
 			if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -432,9 +510,7 @@ function Meow.CreateLib(title, themeName)
 			end
 		end
 	end)
-
 	Meow:DraggingEnabled(Header, Main)
-
 	task.spawn(function()
 		Main.Size = UDim2.fromOffset(500, 30)
 		Tween(Main, { Size = UDim2.new(0, 500, 0, 370) }, 0.5, 2)
@@ -443,10 +519,8 @@ function Meow.CreateLib(title, themeName)
 		Tween(HeaderFade, { BackgroundTransparency = 1 }, 2, 2).Completed:Wait()
 		HeaderFade.Visible = false
 	end)
-
 	local tabsOrder = {}
 	local currentTab = nil
-
 	local function updateTheme(newThemeName)
 		if not Themes[newThemeName] then
 			warn("[Meow] Tema '" .. tostring(newThemeName) .. "' não encontrado!")
@@ -466,7 +540,6 @@ function Meow.CreateLib(title, themeName)
 		HeaderStroke.Color = newT.Stroke
 		SideBarStroke.Color = newT.Stroke
 		ContentStroke.Color = newT.Stroke
-
 		for _, tabData in ipairs(tabsOrder) do
 			tabData.button.BackgroundColor3 = newT.Button1
 			tabData.button.TextColor3 = newT.TextPrimary
@@ -477,16 +550,13 @@ function Meow.CreateLib(title, themeName)
 				if tabData.stroke then tabData.stroke.Color = newT.StrokeHover end
 			end
 		end
-
 		T = newT
 	end
-
 	local LibObj = {}
 	LibObj._Theme = T
 	LibObj._ScreenGui = ScreenGui
 	LibObj._Elements = Elements
 	setmetatable(LibObj, { __index = Meow })
-
 	function LibObj:SerializeConfig()
 		local data = {}
 		for name, entry in pairs(Elements) do
@@ -509,7 +579,6 @@ function Meow.CreateLib(title, themeName)
 		end
 		return data
 	end
-
 	function LibObj:SaveConfig(configName)
 		if not (writefile and isfolder and makefolder) then
 			warn("[Meow] Executor não suporta writefile/isfolder/makefolder, não é possível salvar.")
@@ -530,7 +599,6 @@ function Meow.CreateLib(title, themeName)
 		end
 		return true
 	end
-
 	function LibObj:LoadConfig(configName)
 		if not (readfile and isfile) then
 			warn("[Meow] Executor não suporta readfile/isfile, não é possível carregar.")
@@ -577,7 +645,6 @@ function Meow.CreateLib(title, themeName)
 		end
 		return true
 	end
-
 	function LibObj:ListConfigs()
 		if not (isfolder and listfiles) then return {} end
 		ensureConfigFolder()
@@ -590,7 +657,6 @@ function Meow.CreateLib(title, themeName)
 		end
 		return names
 	end
-
 	function LibObj:DeleteConfig(configName)
 		if not (delfile and isfile) then return false end
 		local path = configName and (CONFIG_FOLDER .. "/" .. configName .. ".json") or CONFIG_FILE
@@ -600,11 +666,9 @@ function Meow.CreateLib(title, themeName)
 		end
 		return false
 	end
-
 	function LibObj:Prompt(promptTitle, promptText, yesText, noText, onResult)
 		return Meow.Prompt(self, promptTitle, promptText, yesText, noText, onResult)
 	end
-
 	function LibObj:AddTab(name)
 		local TabButton = Instance.new("TextButton")
 		TabButton.Name = name
@@ -620,18 +684,15 @@ function Meow.CreateLib(title, themeName)
 		TabButton.AutoButtonColor = false
 		TabButton.LayoutOrder = #tabsOrder + 1
 		TabButton.ZIndex = 52
-
 		local TabButtonCorner = Instance.new("UICorner")
 		TabButtonCorner.CornerRadius = UDim.new(0, 2)
 		TabButtonCorner.Parent = TabButton
-
 		local TabButtonStroke = Instance.new("UIStroke")
 		TabButtonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		TabButtonStroke.Color = T.Stroke
 		TabButtonStroke.LineJoinMode = Enum.LineJoinMode.Round
 		TabButtonStroke.Thickness = 1
 		TabButtonStroke.Parent = TabButton
-
 		local TabContent = Instance.new("ScrollingFrame")
 		TabContent.Name = name .. "_Content"
 		TabContent.Parent = Content
@@ -649,7 +710,6 @@ function Meow.CreateLib(title, themeName)
 		TabContent.CanvasSize = UDim2.fromOffset(0, 0)
 		TabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		TabContent.ZIndex = 31
-
 		local TabContentLayout = Instance.new("UIListLayout")
 		TabContentLayout.Parent = TabContent
 		TabContentLayout.Padding = UDim.new(0, 4)
@@ -657,13 +717,10 @@ function Meow.CreateLib(title, themeName)
 		TabContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 		TabContentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 		TabContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
 		local TabContentPadding = Instance.new("UIPadding")
 		TabContentPadding.PaddingTop = UDim.new(0, 4)
 		TabContentPadding.Parent = TabContent
-
 		table.insert(tabsOrder, { button = TabButton, content = TabContent, stroke = TabButtonStroke })
-
 		local function activateTab()
 			for _, tab in ipairs(tabsOrder) do
 				tab.content.Visible = false
@@ -675,7 +732,6 @@ function Meow.CreateLib(title, themeName)
 			Tween(TabButtonStroke, { Color = T.StrokeHover }, 0.2, 2)
 			currentTab = TabButton
 		end
-
 		TabButton.MouseEnter:Connect(function()
 			if currentTab ~= TabButton then
 				Tween(TabButton, { BackgroundColor3 = T.Button2 }, 0.2, 2)
@@ -689,11 +745,8 @@ function Meow.CreateLib(title, themeName)
 			end
 		end)
 		TabButton.MouseButton1Click:Connect(activateTab)
-
 		if #tabsOrder == 1 then activateTab() end
-
 		local TabFunctions = {}
-
 		function TabFunctions:NewSection(sectionName)
 			local SectionFrame = Instance.new("Frame")
 			SectionFrame.Name = sectionName .. "_Section"
@@ -703,14 +756,12 @@ function Meow.CreateLib(title, themeName)
 			SectionFrame.Size = UDim2.new(0.95, 0, 0, 0)
 			SectionFrame.AutomaticSize = Enum.AutomaticSize.Y
 			SectionFrame.ZIndex = 32
-
 			local SectionFrameStroke = Instance.new("UIStroke")
 			SectionFrameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			SectionFrameStroke.Color = T.Stroke
 			SectionFrameStroke.LineJoinMode = Enum.LineJoinMode.Round
 			SectionFrameStroke.Thickness = 1
 			SectionFrameStroke.Parent = SectionFrame
-
 			local SectionTitleBar = Instance.new("Frame")
 			SectionTitleBar.Name = "TitleBar"
 			SectionTitleBar.Parent = SectionFrame
@@ -718,14 +769,12 @@ function Meow.CreateLib(title, themeName)
 			SectionTitleBar.BorderSizePixel = 0
 			SectionTitleBar.Size = UDim2.new(1, 0, 0, 16)
 			SectionTitleBar.ZIndex = 33
-
 			local SectionTitleBarStroke = Instance.new("UIStroke")
 			SectionTitleBarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			SectionTitleBarStroke.Color = T.Stroke
 			SectionTitleBarStroke.LineJoinMode = Enum.LineJoinMode.Round
 			SectionTitleBarStroke.Thickness = 1
 			SectionTitleBarStroke.Parent = SectionTitleBar
-
 			local SectionTrim = Instance.new("Frame")
 			SectionTrim.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			SectionTrim.BackgroundTransparency = 0
@@ -735,11 +784,9 @@ function Meow.CreateLib(title, themeName)
 			SectionTrim.Size = UDim2.new(1, 2, 0, 1)
 			SectionTrim.ZIndex = 33
 			SectionTrim.Parent = SectionTitleBar
-
 			local SectionTrimGrad = Instance.new("UIGradient")
 			SectionTrimGrad.Color = ColorSequence.new(T.Primary, T.Secondary)
 			SectionTrimGrad.Parent = SectionTrim
-
 			local SectionLabel = Instance.new("TextLabel")
 			SectionLabel.Name = "Label"
 			SectionLabel.Parent = SectionTitleBar
@@ -754,11 +801,9 @@ function Meow.CreateLib(title, themeName)
 			SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
 			SectionLabel.TextYAlignment = Enum.TextYAlignment.Center
 			SectionLabel.ZIndex = 35
-
 			local SectionLabelPad = Instance.new("UIPadding")
 			SectionLabelPad.PaddingLeft = UDim.new(0, 5)
 			SectionLabelPad.Parent = SectionLabel
-
 			local SectionContent = Instance.new("Frame")
 			SectionContent.Name = "Content"
 			SectionContent.Parent = SectionFrame
@@ -768,7 +813,6 @@ function Meow.CreateLib(title, themeName)
 			SectionContent.Size = UDim2.new(1, 0, 0, 0)
 			SectionContent.AutomaticSize = Enum.AutomaticSize.Y
 			SectionContent.ZIndex = 33
-
 			local SectionList = Instance.new("UIListLayout")
 			SectionList.Parent = SectionContent
 			SectionList.Padding = UDim.new(0, 4)
@@ -776,19 +820,15 @@ function Meow.CreateLib(title, themeName)
 			SectionList.FillDirection = Enum.FillDirection.Vertical
 			SectionList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			SectionList.VerticalAlignment = Enum.VerticalAlignment.Top
-
 			local SectionPad = Instance.new("UIPadding")
 			SectionPad.PaddingTop = UDim.new(0, 3)
 			SectionPad.PaddingBottom = UDim.new(0, 3)
 			SectionPad.Parent = SectionContent
-
 			local SectionFunctions = {}
 			local controlCount = 0
-
 			function SectionFunctions:NewButton(btnName, description, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = btnName .. "_Control"
@@ -796,7 +836,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local ClickSensor = Instance.new("TextButton")
 				ClickSensor.BackgroundTransparency = 1
 				ClickSensor.Name = "ClickSensor"
@@ -804,7 +843,6 @@ function Meow.CreateLib(title, themeName)
 				ClickSensor.Text = ""
 				ClickSensor.ZIndex = 34
 				ClickSensor.Parent = ControlFrame
-
 				local BtnLabel = Instance.new("TextLabel")
 				BtnLabel.BackgroundTransparency = 1
 				BtnLabel.Font = Enum.Font.SourceSans
@@ -818,11 +856,9 @@ function Meow.CreateLib(title, themeName)
 				BtnLabel.TextXAlignment = Enum.TextXAlignment.Left
 				BtnLabel.ZIndex = 35
 				BtnLabel.Parent = ClickSensor
-
 				local BtnLabelPad = Instance.new("UIPadding")
 				BtnLabelPad.PaddingLeft = UDim.new(0, 6)
 				BtnLabelPad.Parent = BtnLabel
-
 				local BtnFrame = Instance.new("Frame")
 				BtnFrame.AnchorPoint = Vector2.new(1, 0.5)
 				BtnFrame.BackgroundColor3 = T.Button1
@@ -831,18 +867,15 @@ function Meow.CreateLib(title, themeName)
 				BtnFrame.Size = UDim2.fromOffset(16, 16)
 				BtnFrame.ZIndex = 35
 				BtnFrame.Parent = ClickSensor
-
 				local BtnCorner = Instance.new("UICorner")
 				BtnCorner.CornerRadius = UDim.new(0, 2)
 				BtnCorner.Parent = BtnFrame
-
 				local BtnStroke = Instance.new("UIStroke")
 				BtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				BtnStroke.Color = T.Stroke
 				BtnStroke.LineJoinMode = Enum.LineJoinMode.Round
 				BtnStroke.Thickness = 1
 				BtnStroke.Parent = BtnFrame
-
 				local BtnIcon = Instance.new("ImageLabel")
 				BtnIcon.Active = false
 				BtnIcon.BackgroundTransparency = 1
@@ -854,12 +887,10 @@ function Meow.CreateLib(title, themeName)
 				BtnIcon.Size = UDim2.fromScale(1, 1)
 				BtnIcon.ZIndex = 35
 				BtnIcon.Parent = BtnFrame
-
 				local BtnIconGrad = Instance.new("UIGradient")
 				BtnIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				BtnIconGrad.Rotation = 90
 				BtnIconGrad.Parent = BtnIcon
-
 				if description then
 					local DescLabel = Instance.new("TextLabel")
 					DescLabel.Name = "Description"
@@ -875,7 +906,6 @@ function Meow.CreateLib(title, themeName)
 					DescLabel.ZIndex = 35
 					ControlFrame.Size = UDim2.new(1, 0, 0, 32)
 				end
-
 				ClickSensor.MouseEnter:Connect(function()
 					Tween(BtnFrame, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 					Tween(BtnStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -893,14 +923,11 @@ function Meow.CreateLib(title, themeName)
 					Tween(BtnIcon, { ImageColor3 = Color3.fromRGB(255, 255, 255) }, 1, 2)
 					if callback then callback() end
 				end)
-
 				return ClickSensor
 			end
-
 			function SectionFunctions:NewToggle(toggleName, description, callback, defaultState)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = toggleName .. "_Control"
@@ -908,7 +935,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local BackToggle = Instance.new("TextButton")
 				BackToggle.BackgroundTransparency = 1
 				BackToggle.Name = "BackToggle"
@@ -916,7 +942,6 @@ function Meow.CreateLib(title, themeName)
 				BackToggle.Text = ""
 				BackToggle.ZIndex = 34
 				BackToggle.Parent = ControlFrame
-
 				local TogLabel = Instance.new("TextLabel")
 				TogLabel.BackgroundTransparency = 1
 				TogLabel.Font = Enum.Font.SourceSans
@@ -930,11 +955,9 @@ function Meow.CreateLib(title, themeName)
 				TogLabel.TextXAlignment = Enum.TextXAlignment.Left
 				TogLabel.ZIndex = 35
 				TogLabel.Parent = BackToggle
-
 				local TogLabelPad = Instance.new("UIPadding")
 				TogLabelPad.PaddingLeft = UDim.new(0, 6)
 				TogLabelPad.Parent = TogLabel
-
 				local TogFrame = Instance.new("Frame")
 				TogFrame.AnchorPoint = Vector2.new(1, 0.5)
 				TogFrame.BackgroundColor3 = T.Button1
@@ -943,18 +966,15 @@ function Meow.CreateLib(title, themeName)
 				TogFrame.Size = UDim2.fromOffset(16, 16)
 				TogFrame.ZIndex = 35
 				TogFrame.Parent = BackToggle
-
 				local TogCorner = Instance.new("UICorner")
 				TogCorner.CornerRadius = UDim.new(0, 2)
 				TogCorner.Parent = TogFrame
-
 				local TogStroke = Instance.new("UIStroke")
 				TogStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				TogStroke.Color = T.Stroke
 				TogStroke.LineJoinMode = Enum.LineJoinMode.Round
 				TogStroke.Thickness = 1
 				TogStroke.Parent = TogFrame
-
 				local TogIcon = Instance.new("ImageLabel")
 				TogIcon.Active = false
 				TogIcon.BackgroundTransparency = 1
@@ -966,12 +986,10 @@ function Meow.CreateLib(title, themeName)
 				TogIcon.Size = UDim2.fromScale(1, 1)
 				TogIcon.ZIndex = 35
 				TogIcon.Parent = TogFrame
-
 				local TogIconGrad = Instance.new("UIGradient")
 				TogIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				TogIconGrad.Rotation = 90
 				TogIconGrad.Parent = TogIcon
-
 				if description then
 					local DescLabel = Instance.new("TextLabel")
 					DescLabel.Name = "Description"
@@ -986,10 +1004,8 @@ function Meow.CreateLib(title, themeName)
 					DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 					DescLabel.ZIndex = 35
 				end
-
 				local State = defaultState == true
 				local focused = false
-
 				local function UpdateToggleVisual(state)
 					if state then
 						TogIcon.Image = "rbxassetid://9801457539"
@@ -1010,7 +1026,6 @@ function Meow.CreateLib(title, themeName)
 					end
 				end
 				UpdateToggleVisual(State)
-
 				BackToggle.MouseEnter:Connect(function()
 					focused = true
 					if State then
@@ -1034,7 +1049,6 @@ function Meow.CreateLib(title, themeName)
 					UpdateToggleVisual(State)
 					if callback then callback(State) end
 				end)
-
 				local toggleObj = { Frame = ControlFrame }
 				function toggleObj:Set(value)
 					if State == value then return end
@@ -1048,11 +1062,9 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(toggleName, "toggle", toggleObj)
 				return toggleObj
 			end
-
 			function SectionFunctions:NewSlider(sliderName, min, max, default, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = sliderName .. "_Control"
@@ -1060,7 +1072,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local SliderContainer = Instance.new("Frame")
 				SliderContainer.BackgroundColor3 = T.Button1
 				SliderContainer.Name = "SliderContainer"
@@ -1068,18 +1079,15 @@ function Meow.CreateLib(title, themeName)
 				SliderContainer.Size = UDim2.new(1, -6, 0, 16)
 				SliderContainer.ZIndex = 35
 				SliderContainer.Parent = ControlFrame
-
 				local SliderContainerCorner = Instance.new("UICorner")
 				SliderContainerCorner.CornerRadius = UDim.new(0, 2)
 				SliderContainerCorner.Parent = SliderContainer
-
 				local SliderContainerStroke = Instance.new("UIStroke")
 				SliderContainerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				SliderContainerStroke.Color = T.Stroke
 				SliderContainerStroke.LineJoinMode = Enum.LineJoinMode.Round
 				SliderContainerStroke.Thickness = 1
 				SliderContainerStroke.Parent = SliderContainer
-
 				local SliderFill = Instance.new("Frame")
 				SliderFill.Active = false
 				SliderFill.BackgroundColor3 = T.Primary
@@ -1089,16 +1097,13 @@ function Meow.CreateLib(title, themeName)
 				SliderFill.Size = UDim2.fromScale(math.clamp((default - min) / (max - min), 0, 1), 1)
 				SliderFill.ZIndex = 36
 				SliderFill.Parent = SliderContainer
-
 				local SliderFillCorner = Instance.new("UICorner")
 				SliderFillCorner.CornerRadius = UDim.new(0, 2)
 				SliderFillCorner.Parent = SliderFill
-
 				local SliderFillGrad = Instance.new("UIGradient")
 				SliderFillGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				SliderFillGrad.Rotation = 90
 				SliderFillGrad.Parent = SliderFill
-
 				local SliderLabel = Instance.new("TextLabel")
 				SliderLabel.BackgroundTransparency = 1
 				SliderLabel.Font = Enum.Font.SourceSans
@@ -1112,11 +1117,9 @@ function Meow.CreateLib(title, themeName)
 				SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
 				SliderLabel.ZIndex = 37
 				SliderLabel.Parent = ControlFrame
-
 				local SliderLabelPad = Instance.new("UIPadding")
 				SliderLabelPad.PaddingLeft = UDim.new(0, 6)
 				SliderLabelPad.Parent = SliderLabel
-
 				local SliderVal = Instance.new("TextLabel")
 				SliderVal.BackgroundTransparency = 1
 				SliderVal.Font = Enum.Font.SourceSans
@@ -1130,18 +1133,14 @@ function Meow.CreateLib(title, themeName)
 				SliderVal.TextXAlignment = Enum.TextXAlignment.Right
 				SliderVal.ZIndex = 37
 				SliderVal.Parent = ControlFrame
-
 				local SliderValPad = Instance.new("UIPadding")
 				SliderValPad.PaddingRight = UDim.new(0, 6)
 				SliderValPad.Parent = SliderVal
-
 				if callback then callback(default) end
-
 				local dragging = false
 				local targetSize = SliderFill.Size
 				local aCon
 				local inputChangedCon
-
 				SliderContainer.MouseEnter:Connect(function()
 					Tween(SliderContainer, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 					Tween(SliderContainerStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -1150,14 +1149,12 @@ function Meow.CreateLib(title, themeName)
 					Tween(SliderContainer, { BackgroundColor3 = T.Button1 }, 0.2, 2)
 					Tween(SliderContainerStroke, { Color = T.Stroke }, 0.2, 2)
 				end)
-
 				local function UpdateSlider(value)
 					local percent = math.clamp((value - min) / (max - min), 0, 1)
 					targetSize = UDim2.fromScale(percent, 1)
 					SliderVal.Text = tostring(math.floor(value))
 					if callback then callback(value) end
 				end
-
 				SliderContainer.InputBegan:Connect(function(input)
 					if input.UserInputType == Enum.UserInputType.MouseButton1 then
 						dragging = true
@@ -1191,7 +1188,6 @@ function Meow.CreateLib(title, themeName)
 					if aCon then aCon:Disconnect() end
 					if inputChangedCon then inputChangedCon:Disconnect() end
 				end)
-
 				local sliderObj = { Frame = ControlFrame }
 				function sliderObj:Set(value)
 					value = math.clamp(value, min, max)
@@ -1207,7 +1203,6 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(sliderName, "slider", sliderObj)
 				return sliderObj
 			end
-
 			function SectionFunctions:NewSliderFloat(sliderName, min, max, default, decimals, callback)
 				if type(decimals) == "function" then
 					callback = decimals
@@ -1217,7 +1212,6 @@ function Meow.CreateLib(title, themeName)
 				local fmt = "%." .. tostring(math.clamp(math.floor(decimals), 0, 10)) .. "f"
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = sliderName .. "_Control"
@@ -1225,7 +1219,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local SliderContainer = Instance.new("Frame")
 				SliderContainer.BackgroundColor3 = T.Button1
 				SliderContainer.Name = "SliderContainer"
@@ -1233,18 +1226,15 @@ function Meow.CreateLib(title, themeName)
 				SliderContainer.Size = UDim2.new(1, -6, 0, 16)
 				SliderContainer.ZIndex = 35
 				SliderContainer.Parent = ControlFrame
-
 				local SliderContainerCorner = Instance.new("UICorner")
 				SliderContainerCorner.CornerRadius = UDim.new(0, 2)
 				SliderContainerCorner.Parent = SliderContainer
-
 				local SliderContainerStroke = Instance.new("UIStroke")
 				SliderContainerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				SliderContainerStroke.Color = T.Stroke
 				SliderContainerStroke.LineJoinMode = Enum.LineJoinMode.Round
 				SliderContainerStroke.Thickness = 1
 				SliderContainerStroke.Parent = SliderContainer
-
 				local SliderFill = Instance.new("Frame")
 				SliderFill.Active = false
 				SliderFill.BackgroundColor3 = T.Primary
@@ -1254,16 +1244,13 @@ function Meow.CreateLib(title, themeName)
 				SliderFill.Size = UDim2.fromScale(math.clamp((default - min) / (max - min), 0, 1), 1)
 				SliderFill.ZIndex = 36
 				SliderFill.Parent = SliderContainer
-
 				local SliderFillCorner = Instance.new("UICorner")
 				SliderFillCorner.CornerRadius = UDim.new(0, 2)
 				SliderFillCorner.Parent = SliderFill
-
 				local SliderFillGrad = Instance.new("UIGradient")
 				SliderFillGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				SliderFillGrad.Rotation = 90
 				SliderFillGrad.Parent = SliderFill
-
 				local SliderLabel = Instance.new("TextLabel")
 				SliderLabel.BackgroundTransparency = 1
 				SliderLabel.Font = Enum.Font.SourceSans
@@ -1277,11 +1264,9 @@ function Meow.CreateLib(title, themeName)
 				SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
 				SliderLabel.ZIndex = 37
 				SliderLabel.Parent = ControlFrame
-
 				local SliderLabelPad = Instance.new("UIPadding")
 				SliderLabelPad.PaddingLeft = UDim.new(0, 6)
 				SliderLabelPad.Parent = SliderLabel
-
 				local SliderVal = Instance.new("TextLabel")
 				SliderVal.BackgroundTransparency = 1
 				SliderVal.Font = Enum.Font.SourceSans
@@ -1295,18 +1280,14 @@ function Meow.CreateLib(title, themeName)
 				SliderVal.TextXAlignment = Enum.TextXAlignment.Right
 				SliderVal.ZIndex = 37
 				SliderVal.Parent = ControlFrame
-
 				local SliderValPad = Instance.new("UIPadding")
 				SliderValPad.PaddingRight = UDim.new(0, 6)
 				SliderValPad.Parent = SliderVal
-
 				if callback then callback(default) end
-
 				local dragging = false
 				local targetSize = SliderFill.Size
 				local aCon
 				local inputChangedCon
-
 				SliderContainer.MouseEnter:Connect(function()
 					Tween(SliderContainer, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 					Tween(SliderContainerStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -1315,14 +1296,12 @@ function Meow.CreateLib(title, themeName)
 					Tween(SliderContainer, { BackgroundColor3 = T.Button1 }, 0.2, 2)
 					Tween(SliderContainerStroke, { Color = T.Stroke }, 0.2, 2)
 				end)
-
 				local function UpdateSlider(value)
 					local percent = math.clamp((value - min) / (max - min), 0, 1)
 					targetSize = UDim2.fromScale(percent, 1)
 					SliderVal.Text = string.format(fmt, value)
 					if callback then callback(value) end
 				end
-
 				SliderContainer.InputBegan:Connect(function(input)
 					if input.UserInputType == Enum.UserInputType.MouseButton1 then
 						dragging = true
@@ -1352,7 +1331,6 @@ function Meow.CreateLib(title, themeName)
 					if aCon then aCon:Disconnect() end
 					if inputChangedCon then inputChangedCon:Disconnect() end
 				end)
-
 				local sliderObj = { Frame = ControlFrame }
 				function sliderObj:Set(value)
 					value = math.clamp(value, min, max)
@@ -1366,13 +1344,11 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(sliderName, "slider", sliderObj)
 				return sliderObj
 			end
-
 			function SectionFunctions:NewDropdown(dropName, options, defaultOption, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
 				local isOpen = false
 				local selectedOption = defaultOption or (options and options[1]) or "Select"
-
 				local DropFrame = Instance.new("Frame")
 				DropFrame.Name = dropName .. "_Dropdown"
 				DropFrame.BackgroundTransparency = 1
@@ -1381,7 +1357,6 @@ function Meow.CreateLib(title, themeName)
 				DropFrame.LayoutOrder = elementOrder
 				DropFrame.ZIndex = 34
 				DropFrame.Parent = SectionContent
-
 				local MainButton = Instance.new("TextButton")
 				MainButton.Name = "MainButton"
 				MainButton.Parent = DropFrame
@@ -1392,18 +1367,15 @@ function Meow.CreateLib(title, themeName)
 				MainButton.Text = ""
 				MainButton.AutoButtonColor = false
 				MainButton.ZIndex = 35
-
 				local MainBtnCorner = Instance.new("UICorner")
 				MainBtnCorner.CornerRadius = UDim.new(0, 2)
 				MainBtnCorner.Parent = MainButton
-
 				local MainBtnStroke = Instance.new("UIStroke")
 				MainBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				MainBtnStroke.Color = T.Stroke
 				MainBtnStroke.LineJoinMode = Enum.LineJoinMode.Round
 				MainBtnStroke.Thickness = 1
 				MainBtnStroke.Parent = MainButton
-
 				local MainBtnLabel = Instance.new("TextLabel")
 				MainBtnLabel.BackgroundTransparency = 1
 				MainBtnLabel.Font = Enum.Font.SourceSans
@@ -1417,11 +1389,9 @@ function Meow.CreateLib(title, themeName)
 				MainBtnLabel.TextXAlignment = Enum.TextXAlignment.Left
 				MainBtnLabel.ZIndex = 36
 				MainBtnLabel.Parent = MainButton
-
 				local MainBtnLabelPad = Instance.new("UIPadding")
 				MainBtnLabelPad.PaddingLeft = UDim.new(0, 6)
 				MainBtnLabelPad.Parent = MainBtnLabel
-
 				local ArrowIcon = Instance.new("ImageLabel")
 				ArrowIcon.AnchorPoint = Vector2.new(1, 0.5)
 				ArrowIcon.BackgroundTransparency = 1
@@ -1433,12 +1403,10 @@ function Meow.CreateLib(title, themeName)
 				ArrowIcon.Size = UDim2.fromOffset(16, 16)
 				ArrowIcon.ZIndex = 36
 				ArrowIcon.Parent = MainButton
-
 				local ArrowIconGrad = Instance.new("UIGradient")
 				ArrowIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				ArrowIconGrad.Rotation = 90
 				ArrowIconGrad.Parent = ArrowIcon
-
 				local OptionsFrame = Instance.new("Frame")
 				OptionsFrame.Name = "OptionsFrame"
 				OptionsFrame.Parent = DropFrame
@@ -1450,25 +1418,21 @@ function Meow.CreateLib(title, themeName)
 				OptionsFrame.Visible = false
 				OptionsFrame.ClipsDescendants = true
 				OptionsFrame.ZIndex = 36
-
 				local OptionsFrameStroke = Instance.new("UIStroke")
 				OptionsFrameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				OptionsFrameStroke.Color = T.Stroke
 				OptionsFrameStroke.LineJoinMode = Enum.LineJoinMode.Round
 				OptionsFrameStroke.Thickness = 1
 				OptionsFrameStroke.Parent = OptionsFrame
-
 				local OptionsList = Instance.new("UIListLayout")
 				OptionsList.Parent = OptionsFrame
 				OptionsList.Padding = UDim.new(0, 4)
 				OptionsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 				OptionsList.VerticalAlignment = Enum.VerticalAlignment.Top
 				OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
-
 				local OptionsListPad = Instance.new("UIPadding")
 				OptionsListPad.PaddingTop = UDim.new(0, 4)
 				OptionsListPad.Parent = OptionsFrame
-
 				local function createOptions()
 					for _, child in ipairs(OptionsFrame:GetChildren()) do
 						if child:IsA("TextButton") then child:Destroy() end
@@ -1487,18 +1451,15 @@ function Meow.CreateLib(title, themeName)
 						OptButton.AutoButtonColor = false
 						OptButton.ZIndex = 37
 						OptButton.LayoutOrder = i
-
 						local OptCorner = Instance.new("UICorner")
 						OptCorner.CornerRadius = UDim.new(0, 2)
 						OptCorner.Parent = OptButton
-
 						local OptStroke = Instance.new("UIStroke")
 						OptStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 						OptStroke.Color = T.Stroke
 						OptStroke.LineJoinMode = Enum.LineJoinMode.Round
 						OptStroke.Thickness = 1
 						OptStroke.Parent = OptButton
-
 						OptButton.MouseEnter:Connect(function()
 							Tween(OptButton, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 							Tween(OptStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -1522,7 +1483,6 @@ function Meow.CreateLib(title, themeName)
 					end
 				end
 				createOptions()
-
 				local function toggleDropdown()
 					isOpen = not isOpen
 					Tween(ArrowIcon, { Rotation = isOpen and 180 or 0, ImageColor3 = isOpen and T.Primary or T.Secondary }, 0.2, 2)
@@ -1540,7 +1500,6 @@ function Meow.CreateLib(title, themeName)
 						end)
 					end
 				end
-
 				MainButton.MouseEnter:Connect(function()
 					if not isOpen then
 						Tween(MainButton, { BackgroundColor3 = T.Button2 }, 0.2, 2)
@@ -1554,15 +1513,13 @@ function Meow.CreateLib(title, themeName)
 					end
 				end)
 				MainButton.MouseButton1Click:Connect(toggleDropdown)
-
 				local dropdownConnection
 				dropdownConnection = UserInputService.InputBegan:Connect(function(input)
 					if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
 						local pos = input.Position
 						local framePos = DropFrame.AbsolutePosition
 						local frameSize = DropFrame.AbsoluteSize
-						if not (pos.X >= framePos.X and pos.X <= framePos.X + frameSize.X and
-								pos.Y >= framePos.Y and pos.Y <= framePos.Y + frameSize.Y) then
+						if not (pos.X >= framePos.X and pos.X <= framePos.X + frameSize.X and pos.Y >= framePos.Y and pos.Y <= framePos.Y + frameSize.Y) then
 							if isOpen then toggleDropdown() end
 						end
 					end
@@ -1570,7 +1527,6 @@ function Meow.CreateLib(title, themeName)
 				DropFrame.Destroying:Connect(function()
 					dropdownConnection:Disconnect()
 				end)
-
 				local dropdownMethods = {}
 				function dropdownMethods:Set(newOption)
 					if table.find(options, newOption) then
@@ -1593,14 +1549,12 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(dropName, "dropdown", dropdownMethods)
 				return dropdownMethods
 			end
-
 			function SectionFunctions:NewColorPicker(pickerName, defaultColor, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
 				local currentColor = defaultColor or Color3.fromRGB(255, 255, 255)
 				local pickerWindowObj = nil
 				local pickerOpening = false
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = pickerName .. "_Control"
@@ -1608,7 +1562,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local ClickSensor = Instance.new("TextButton")
 				ClickSensor.BackgroundTransparency = 1
 				ClickSensor.Name = "ClickSensor"
@@ -1616,7 +1569,6 @@ function Meow.CreateLib(title, themeName)
 				ClickSensor.Text = ""
 				ClickSensor.ZIndex = 34
 				ClickSensor.Parent = ControlFrame
-
 				local PickerLabel = Instance.new("TextLabel")
 				PickerLabel.BackgroundTransparency = 1
 				PickerLabel.Font = Enum.Font.SourceSans
@@ -1630,11 +1582,9 @@ function Meow.CreateLib(title, themeName)
 				PickerLabel.TextXAlignment = Enum.TextXAlignment.Left
 				PickerLabel.ZIndex = 35
 				PickerLabel.Parent = ClickSensor
-
 				local PickerLabelPad = Instance.new("UIPadding")
 				PickerLabelPad.PaddingLeft = UDim.new(0, 6)
 				PickerLabelPad.Parent = PickerLabel
-
 				local ColorDisplay = Instance.new("Frame")
 				ColorDisplay.AnchorPoint = Vector2.new(1, 0.5)
 				ColorDisplay.BackgroundColor3 = T.Button1
@@ -1643,18 +1593,15 @@ function Meow.CreateLib(title, themeName)
 				ColorDisplay.Size = UDim2.fromOffset(16, 16)
 				ColorDisplay.ZIndex = 35
 				ColorDisplay.Parent = ClickSensor
-
 				local ColorDisplayCorner = Instance.new("UICorner")
 				ColorDisplayCorner.CornerRadius = UDim.new(1, 0)
 				ColorDisplayCorner.Parent = ColorDisplay
-
 				local ColorDisplayStroke = Instance.new("UIStroke")
 				ColorDisplayStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				ColorDisplayStroke.Color = T.Stroke
 				ColorDisplayStroke.LineJoinMode = Enum.LineJoinMode.Round
 				ColorDisplayStroke.Thickness = 1
 				ColorDisplayStroke.Parent = ColorDisplay
-
 				local ColorInner = Instance.new("Frame")
 				ColorInner.BorderSizePixel = 0
 				ColorInner.BackgroundColor3 = currentColor
@@ -1663,16 +1610,13 @@ function Meow.CreateLib(title, themeName)
 				ColorInner.Size = UDim2.fromOffset(12, 12)
 				ColorInner.ZIndex = 35
 				ColorInner.Parent = ColorDisplay
-
 				local ColorInnerCorner = Instance.new("UICorner")
 				ColorInnerCorner.CornerRadius = UDim.new(1, 0)
 				ColorInnerCorner.Parent = ColorInner
-
 				local ColorInnerGrad = Instance.new("UIGradient")
 				ColorInnerGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 				ColorInnerGrad.Rotation = 90
 				ColorInnerGrad.Parent = ColorInner
-
 				ClickSensor.MouseEnter:Connect(function()
 					Tween(ColorDisplay, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 					Tween(ColorDisplayStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -1681,7 +1625,6 @@ function Meow.CreateLib(title, themeName)
 					Tween(ColorDisplay, { BackgroundColor3 = T.Button1 }, 0.2, 2)
 					Tween(ColorDisplayStroke, { Color = T.Stroke }, 0.2, 2)
 				end)
-
 				ClickSensor.MouseButton1Click:Connect(function()
 					if pickerOpening then return end
 					if pickerWindowObj then
@@ -1703,17 +1646,13 @@ function Meow.CreateLib(title, themeName)
 							if callback then callback(color) end
 						end)
 						if pickerWindowObj and pickerWindowObj.guiRef then
-							pickerWindowObj.guiRef.Position = UDim2.fromOffset(
-								math.clamp(centerX, 50, 1200),
-								math.clamp(centerY, 50, 700)
-							)
+							pickerWindowObj.guiRef.Position = UDim2.fromOffset(math.clamp(centerX, 50, 1200), math.clamp(centerY, 50, 700))
 						end
 						task.delay(0.1, function()
 							pickerOpening = false
 						end)
 					end
 				end)
-
 				local pickerObj = { Frame = ControlFrame }
 				function pickerObj:Set(color)
 					if typeof(color) ~= "Color3" then return end
@@ -1730,11 +1669,9 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(pickerName, "colorpicker", pickerObj)
 				return pickerObj
 			end
-
 			function SectionFunctions:NewTextBox(tbName, placeholder, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = tbName .. "_Control"
@@ -1742,7 +1679,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local TextBox = Instance.new("TextBox")
 				TextBox.Name = "Input"
 				TextBox.Parent = ControlFrame
@@ -1762,22 +1698,18 @@ function Meow.CreateLib(title, themeName)
 				TextBox.TextTruncate = Enum.TextTruncate.AtEnd
 				TextBox.ClearTextOnFocus = false
 				TextBox.ZIndex = 35
-
 				local TBCorner = Instance.new("UICorner")
 				TBCorner.CornerRadius = UDim.new(0, 2)
 				TBCorner.Parent = TextBox
-
 				local TBStroke = Instance.new("UIStroke")
 				TBStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				TBStroke.Color = T.Stroke
 				TBStroke.LineJoinMode = Enum.LineJoinMode.Round
 				TBStroke.Thickness = 1
 				TBStroke.Parent = TextBox
-
 				local TBPad = Instance.new("UIPadding")
 				TBPad.PaddingLeft = UDim.new(0, 5)
 				TBPad.Parent = TextBox
-
 				TextBox.Focused:Connect(function()
 					Tween(TextBox, { BackgroundColor3 = T.Button3, TextColor3 = T.Primary }, 0.2, 2)
 					Tween(TBStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -1789,7 +1721,6 @@ function Meow.CreateLib(title, themeName)
 						callback(TextBox.Text)
 					end
 				end)
-
 				local methods = {}
 				function methods:Set(newText)
 					TextBox.Text = tostring(newText)
@@ -1802,14 +1733,12 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(tbName, "textbox", methods)
 				return methods
 			end
-
 			function SectionFunctions:NewKeybind(kbName, defaultKey, callback)
 				controlCount = controlCount + 1
 				local elementOrder = controlCount
 				local currentKey = StringToKeyCode(defaultKey)
 				local listening = false
 				local focused = false
-
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
 				ControlFrame.Name = kbName .. "_Control"
@@ -1817,7 +1746,6 @@ function Meow.CreateLib(title, themeName)
 				ControlFrame.ZIndex = 34
 				ControlFrame.LayoutOrder = elementOrder
 				ControlFrame.Parent = SectionContent
-
 				local BackButton = Instance.new("TextButton")
 				BackButton.BackgroundTransparency = 1
 				BackButton.Name = "Back"
@@ -1825,7 +1753,6 @@ function Meow.CreateLib(title, themeName)
 				BackButton.Text = ""
 				BackButton.ZIndex = 34
 				BackButton.Parent = ControlFrame
-
 				local KBLabel = Instance.new("TextLabel")
 				KBLabel.BackgroundTransparency = 1
 				KBLabel.Font = Enum.Font.SourceSans
@@ -1839,11 +1766,9 @@ function Meow.CreateLib(title, themeName)
 				KBLabel.TextXAlignment = Enum.TextXAlignment.Left
 				KBLabel.ZIndex = 35
 				KBLabel.Parent = BackButton
-
 				local KBLabelPad = Instance.new("UIPadding")
 				KBLabelPad.PaddingLeft = UDim.new(0, 6)
 				KBLabelPad.Parent = KBLabel
-
 				local KBDisplay = Instance.new("TextLabel")
 				KBDisplay.AnchorPoint = Vector2.new(1, 0.5)
 				KBDisplay.BackgroundTransparency = 1
@@ -1859,7 +1784,6 @@ function Meow.CreateLib(title, themeName)
 				KBDisplay.TextXAlignment = Enum.TextXAlignment.Right
 				KBDisplay.ZIndex = 35
 				KBDisplay.Parent = BackButton
-
 				BackButton.MouseEnter:Connect(function()
 					focused = true
 					if listening then
@@ -1879,7 +1803,6 @@ function Meow.CreateLib(title, themeName)
 					KBDisplay.Text = "..."
 					Tween(KBDisplay, { TextColor3 = T.Primary }, 0.2, 2)
 				end)
-
 				local inputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
 					if listening and not gameProcessed then
 						if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -1894,13 +1817,11 @@ function Meow.CreateLib(title, themeName)
 						if callback and not listening then callback(currentKey) end
 					end
 				end)
-
 				ControlFrame.AncestryChanged:Connect(function(_, parent)
 					if not parent and inputConnection then
 						inputConnection:Disconnect()
 					end
 				end)
-
 				local keybindObject = {}
 				keybindObject.Frame = ControlFrame
 				function keybindObject:Set(newKey)
@@ -1914,13 +1835,10 @@ function Meow.CreateLib(title, themeName)
 				RegisterElement(kbName, "keybind", keybindObject)
 				return keybindObject
 			end
-
 			return SectionFunctions
 		end
-
 		return TabFunctions
 	end
-
 	LibObj.ToggleUI = function()
 		ScreenGui.Enabled = not ScreenGui.Enabled
 	end
@@ -1936,7 +1854,6 @@ function Meow.CreateLib(title, themeName)
 		end
 	end
 	LibObj.ChangeTheme = updateTheme
-
 	return LibObj
 end
 
