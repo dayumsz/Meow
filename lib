@@ -1,4 +1,9 @@
-local Meow = {}
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+local CONFIG_FOLDER = CONFIG_FOLDER or "MeowConfigs"
+local CONFIG_FILE = CONFIG_FILE or (CONFIG_FOLDER .. "/default.json")
 
 function Meow.CreateLib(title, themeName)
 	local T = Themes[themeName] or Themes.DefaultTheme
@@ -778,9 +783,11 @@ function Meow.CreateLib(title, themeName)
 			SectionPad.Parent = SectionContent
 
 			local SectionFunctions = {}
+			local controlCount = 0
 
 			function SectionFunctions:NewButton(btnName, description, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
@@ -891,7 +898,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewToggle(toggleName, description, callback, defaultState)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
@@ -1042,7 +1050,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewSlider(sliderName, min, max, default, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
@@ -1131,6 +1140,7 @@ function Meow.CreateLib(title, themeName)
 				local dragging = false
 				local targetSize = SliderFill.Size
 				local aCon
+				local inputChangedCon
 
 				SliderContainer.MouseEnter:Connect(function()
 					Tween(SliderContainer, { BackgroundColor3 = T.Button2 }, 0.2, 2)
@@ -1168,7 +1178,7 @@ function Meow.CreateLib(title, themeName)
 						Tween(SliderFill, { Size = targetSize }, 0.2, 2)
 					end
 				end)
-				UserInputService.InputChanged:Connect(function(input)
+				inputChangedCon = UserInputService.InputChanged:Connect(function(input)
 					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 						local sliderPos = SliderContainer.AbsolutePosition
 						local sliderWidth = SliderContainer.AbsoluteSize.X
@@ -1176,6 +1186,10 @@ function Meow.CreateLib(title, themeName)
 						local value = min + (max - min) * rawValue
 						UpdateSlider(value)
 					end
+				end)
+				ControlFrame.Destroying:Connect(function()
+					if aCon then aCon:Disconnect() end
+					if inputChangedCon then inputChangedCon:Disconnect() end
 				end)
 
 				local sliderObj = { Frame = ControlFrame }
@@ -1201,7 +1215,8 @@ function Meow.CreateLib(title, themeName)
 				end
 				decimals = decimals or 2
 				local fmt = "%." .. tostring(math.clamp(math.floor(decimals), 0, 10)) .. "f"
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
@@ -1290,6 +1305,7 @@ function Meow.CreateLib(title, themeName)
 				local dragging = false
 				local targetSize = SliderFill.Size
 				local aCon
+				local inputChangedCon
 
 				SliderContainer.MouseEnter:Connect(function()
 					Tween(SliderContainer, { BackgroundColor3 = T.Button2 }, 0.2, 2)
@@ -1325,12 +1341,16 @@ function Meow.CreateLib(title, themeName)
 						Tween(SliderFill, { Size = targetSize }, 0.2, 2)
 					end
 				end)
-				UserInputService.InputChanged:Connect(function(input)
+				inputChangedCon = UserInputService.InputChanged:Connect(function(input)
 					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 						local pos = input.Position.X - SliderContainer.AbsolutePosition.X
 						local rawValue = math.clamp(pos / SliderContainer.AbsoluteSize.X, 0, 1)
 						UpdateSlider(min + (max - min) * rawValue)
 					end
+				end)
+				ControlFrame.Destroying:Connect(function()
+					if aCon then aCon:Disconnect() end
+					if inputChangedCon then inputChangedCon:Disconnect() end
 				end)
 
 				local sliderObj = { Frame = ControlFrame }
@@ -1348,7 +1368,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewDropdown(dropName, options, defaultOption, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 				local isOpen = false
 				local selectedOption = defaultOption or (options and options[1]) or "Select"
 
@@ -1574,7 +1595,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewColorPicker(pickerName, defaultColor, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 				local currentColor = defaultColor or Color3.fromRGB(255, 255, 255)
 				local pickerWindowObj = nil
 				local pickerOpening = false
@@ -1710,7 +1732,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewTextBox(tbName, placeholder, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 
 				local ControlFrame = Instance.new("Frame")
 				ControlFrame.BackgroundTransparency = 1
@@ -1781,7 +1804,8 @@ function Meow.CreateLib(title, themeName)
 			end
 
 			function SectionFunctions:NewKeybind(kbName, defaultKey, callback)
-				local elementOrder = #SectionContent:GetChildren()
+				controlCount = controlCount + 1
+				local elementOrder = controlCount
 				local currentKey = StringToKeyCode(defaultKey)
 				local listening = false
 				local focused = false
