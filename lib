@@ -1,3 +1,5 @@
+local Meow = {}
+
 function Meow.CreateLib(title, themeName)
 	local T = Themes[themeName] or Themes.DefaultTheme
 
