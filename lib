@@ -1112,11 +1112,25 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 	CloseCorner.Parent = Close
 
 	local CloseStroke = Instance.new("UIStroke")
-	CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	CloseStroke.Color = T.Stroke
-	CloseStroke.LineJoinMode = Enum.LineJoinMode.Round
-	CloseStroke.Thickness = 1
-	CloseStroke.Parent = Close
+CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+CloseStroke.Color = T.Stroke
+CloseStroke.LineJoinMode = Enum.LineJoinMode.Round
+CloseStroke.Thickness = 1
+CloseStroke.Parent = Close
+
+local CloseIcon = Instance.new("ImageLabel")
+CloseIcon.BackgroundTransparency = 1
+CloseIcon.BorderSizePixel = 0
+CloseIcon.Image = "rbxassetid://9801460300"
+CloseIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+CloseIcon.Size = UDim2.fromScale(1, 1)
+CloseIcon.ZIndex = 52
+CloseIcon.Parent = Close
+
+local CloseIconGrad = Instance.new("UIGradient")
+CloseIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+CloseIconGrad.Rotation = 90
+CloseIconGrad.Parent = CloseIcon
 
 	local SideBar = Instance.new("Frame")
 	SideBar.Name = "SideBar"
@@ -1194,7 +1208,6 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 		TweenProperty(CloseStroke, { Color = T.Stroke }, 0.2, 2)
 	end)
 	Close.MouseButton1Click:Connect(function()
-		TweenProperty(MainScale, { Scale = 0.6 }, 0.5, 2).Completed:Wait()
 		ScreenGui:Destroy()
 	end)
 
