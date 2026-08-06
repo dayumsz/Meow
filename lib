@@ -1112,25 +1112,25 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 	CloseCorner.Parent = Close
 
 	local CloseStroke = Instance.new("UIStroke")
-CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-CloseStroke.Color = T.Stroke
-CloseStroke.LineJoinMode = Enum.LineJoinMode.Round
-CloseStroke.Thickness = 1
-CloseStroke.Parent = Close
+	CloseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	CloseStroke.Color = T.Stroke
+	CloseStroke.LineJoinMode = Enum.LineJoinMode.Round
+	CloseStroke.Thickness = 1
+	CloseStroke.Parent = Close
 
-local CloseIcon = Instance.new("ImageLabel")
-CloseIcon.BackgroundTransparency = 1
-CloseIcon.BorderSizePixel = 0
-CloseIcon.Image = "rbxassetid://9801460300"
-CloseIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-CloseIcon.Size = UDim2.fromScale(1, 1)
-CloseIcon.ZIndex = 52
-CloseIcon.Parent = Close
+	local CloseIcon = Instance.new("ImageLabel")
+	CloseIcon.BackgroundTransparency = 1
+	CloseIcon.BorderSizePixel = 0
+	CloseIcon.Image = "rbxassetid://9801460300"
+	CloseIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+	CloseIcon.Size = UDim2.fromScale(1, 1)
+	CloseIcon.ZIndex = 52
+	CloseIcon.Parent = Close
 
-local CloseIconGrad = Instance.new("UIGradient")
-CloseIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
-CloseIconGrad.Rotation = 90
-CloseIconGrad.Parent = CloseIcon
+	local CloseIconGrad = Instance.new("UIGradient")
+	CloseIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+	CloseIconGrad.Rotation = 90
+	CloseIconGrad.Parent = CloseIcon
 
 	local SideBar = Instance.new("Frame")
 	SideBar.Name = "SideBar"
@@ -2648,6 +2648,23 @@ CloseIconGrad.Parent = CloseIcon
 						BtnStroke.Thickness = 1
 						BtnStroke.Parent = BtnFrame
 
+						local BtnIcon = Instance.new("ImageLabel")
+						BtnIcon.Active = false
+						BtnIcon.BackgroundTransparency = 1
+						BtnIcon.BorderSizePixel = 0
+						BtnIcon.Image = "rbxassetid://9801455339"
+						BtnIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+						BtnIcon.Name = "Icon"
+						BtnIcon.Rotation = 360
+						BtnIcon.Size = UDim2.fromScale(1, 1)
+						BtnIcon.ZIndex = 39
+						BtnIcon.Parent = BtnFrame
+
+						local BtnIconGrad = Instance.new("UIGradient")
+						BtnIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+						BtnIconGrad.Rotation = 90
+						BtnIconGrad.Parent = BtnIcon
+
 						ClickSensor.MouseEnter:Connect(function()
 							TweenProperty(BtnFrame, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 							TweenProperty(BtnStroke, { Color = T.StrokeHover }, 0.2, 2)
@@ -2661,6 +2678,8 @@ CloseIconGrad.Parent = CloseIcon
 								BtnFrame.BackgroundColor3 = T.Button3
 								TweenProperty(BtnFrame, { BackgroundColor3 = T.Button1 }, 1, 2)
 							end
+							BtnIcon.ImageColor3 = T.Primary
+							TweenProperty(BtnIcon, { ImageColor3 = Color3.fromRGB(255, 255, 255) }, 1, 2)
 							if callback then
 								callback(opt.name, nil, nil, allStates)
 							end
@@ -2814,14 +2833,52 @@ CloseIconGrad.Parent = CloseIcon
 						TBStroke.Thickness = 1
 						TBStroke.Parent = TogBtn
 
+						local TogIcon = Instance.new("ImageLabel")
+						TogIcon.Active = false
+						TogIcon.BackgroundTransparency = 1
+						TogIcon.BorderSizePixel = 0
+						TogIcon.Image = "rbxassetid://9801456486"
+						TogIcon.ImageColor3 = T.Secondary
+						TogIcon.Name = "Icon"
+						TogIcon.Rotation = 360
+						TogIcon.Size = UDim2.fromScale(1, 1)
+						TogIcon.ZIndex = 39
+						TogIcon.Parent = TogBtn
+
+						local TogIconGrad = Instance.new("UIGradient")
+						TogIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+						TogIconGrad.Rotation = 90
+						TogIconGrad.Parent = TogIcon
+
 						local function updateToggleVisual(state)
 							if state then
+								TogIcon.Image = "rbxassetid://9801457539"
+								TweenProperty(TogIcon, { Rotation = 0, ImageColor3 = T.Primary }, 0.3, 2)
 								TweenProperty(TogBtn, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 							else
+								TogIcon.Image = "rbxassetid://9801456486"
+								TweenProperty(TogIcon, { Rotation = 360, ImageColor3 = T.Secondary }, 0.3, 2)
 								TweenProperty(TogBtn, { BackgroundColor3 = T.Button1 }, 0.2, 2)
 							end
 						end
 						updateToggleVisual(allStates[opt.name].toggleValue)
+
+						TogBtn.MouseEnter:Connect(function()
+							if allStates[opt.name].toggleValue then
+								TweenProperty(TogBtn, { BackgroundColor3 = T.Button3 }, 0.2, 2)
+							else
+								TweenProperty(TogBtn, { BackgroundColor3 = T.Button2 }, 0.2, 2)
+							end
+							TweenProperty(TBStroke, { Color = T.StrokeHover }, 0.2, 2)
+						end)
+						TogBtn.MouseLeave:Connect(function()
+							if allStates[opt.name].toggleValue then
+								TweenProperty(TogBtn, { BackgroundColor3 = T.Button2 }, 0.2, 2)
+							else
+								TweenProperty(TogBtn, { BackgroundColor3 = T.Button1 }, 0.2, 2)
+							end
+							TweenProperty(TBStroke, { Color = T.Stroke }, 0.2, 2)
+						end)
 
 						TogBtn.MouseButton1Click:Connect(function()
 							allStates[opt.name].toggleValue = not allStates[opt.name].toggleValue
