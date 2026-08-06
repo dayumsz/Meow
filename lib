@@ -1458,6 +1458,8 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 				BtnLabel.Text = btnName
 				BtnLabel.TextColor3 = T.TextPrimary
 				BtnLabel.TextSize = 14
+				BtnLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+				BtnLabel.TextStrokeTransparency = 0.8
 				BtnLabel.TextXAlignment = Enum.TextXAlignment.Left
 				BtnLabel.ZIndex = 35
 				BtnLabel.Parent = ClickSensor
@@ -1486,6 +1488,23 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 				BtnStroke.Thickness = 1
 				BtnStroke.Parent = BtnFrame
 
+				local BtnIcon = Instance.new("ImageLabel")
+				BtnIcon.Active = false
+				BtnIcon.BackgroundTransparency = 1
+				BtnIcon.BorderSizePixel = 0
+				BtnIcon.Image = "rbxassetid://9801455339"
+				BtnIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+				BtnIcon.Name = "Icon"
+				BtnIcon.Rotation = 360
+				BtnIcon.Size = UDim2.fromScale(1, 1)
+				BtnIcon.ZIndex = 35
+				BtnIcon.Parent = BtnFrame
+
+				local BtnIconGrad = Instance.new("UIGradient")
+				BtnIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+				BtnIconGrad.Rotation = 90
+				BtnIconGrad.Parent = BtnIcon
+
 				if description then
 					local DescLabel = Instance.new("TextLabel")
 					DescLabel.Name = "Description"
@@ -1506,17 +1525,17 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 					TweenProperty(BtnFrame, { BackgroundColor3 = T.Button2 }, 0.2, 2)
 					TweenProperty(BtnStroke, { Color = T.StrokeHover }, 0.2, 2)
 				end)
-
 				ClickSensor.MouseLeave:Connect(function()
 					TweenProperty(BtnFrame, { BackgroundColor3 = T.Button1 }, 0.2, 2)
 					TweenProperty(BtnStroke, { Color = T.Stroke }, 0.2, 2)
 				end)
-
 				ClickSensor.MouseButton1Click:Connect(function()
 					if BtnFrame.BackgroundColor3 ~= T.Button3 then
 						BtnFrame.BackgroundColor3 = T.Button3
 						TweenProperty(BtnFrame, { BackgroundColor3 = T.Button1 }, 1, 2)
 					end
+					BtnIcon.ImageColor3 = T.Primary
+					TweenProperty(BtnIcon, { ImageColor3 = Color3.fromRGB(255, 255, 255) }, 1, 2)
 					if callback then callback() end
 				end)
 
@@ -1550,6 +1569,8 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 				TogLabel.Text = toggleName
 				TogLabel.TextColor3 = T.TextPrimary
 				TogLabel.TextSize = 14
+				TogLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+				TogLabel.TextStrokeTransparency = 0.8
 				TogLabel.TextXAlignment = Enum.TextXAlignment.Left
 				TogLabel.ZIndex = 35
 				TogLabel.Parent = BackToggle
@@ -1578,6 +1599,23 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 				TogStroke.Thickness = 1
 				TogStroke.Parent = TogFrame
 
+				local TogIcon = Instance.new("ImageLabel")
+				TogIcon.Active = false
+				TogIcon.BackgroundTransparency = 1
+				TogIcon.BorderSizePixel = 0
+				TogIcon.Image = "rbxassetid://9801456486"
+				TogIcon.ImageColor3 = T.Secondary
+				TogIcon.Name = "Icon"
+				TogIcon.Rotation = 360
+				TogIcon.Size = UDim2.fromScale(1, 1)
+				TogIcon.ZIndex = 35
+				TogIcon.Parent = TogFrame
+
+				local TogIconGrad = Instance.new("UIGradient")
+				TogIconGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+				TogIconGrad.Rotation = 90
+				TogIconGrad.Parent = TogIcon
+
 				if description then
 					local DescLabel = Instance.new("TextLabel")
 					DescLabel.Name = "Description"
@@ -1598,12 +1636,23 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 
 				local function UpdateToggleVisual(state)
 					if state then
-						TweenProperty(TogFrame, { BackgroundColor3 = focused and T.Button3 or T.Button2 }, 0.2, 2)
+						TogIcon.Image = "rbxassetid://9801457539"
+						TweenProperty(TogIcon, { Rotation = 0, ImageColor3 = T.Primary }, 0.3, 2)
+						if focused then
+							TweenProperty(TogFrame, { BackgroundColor3 = T.Button3 }, 0.2, 2)
+						else
+							TweenProperty(TogFrame, { BackgroundColor3 = T.Button2 }, 0.2, 2)
+						end
 					else
-						TweenProperty(TogFrame, { BackgroundColor3 = focused and T.Button2 or T.Button1 }, 0.2, 2)
+						TogIcon.Image = "rbxassetid://9801456486"
+						TweenProperty(TogIcon, { Rotation = 360, ImageColor3 = T.Secondary }, 0.3, 2)
+						if focused then
+							TweenProperty(TogFrame, { BackgroundColor3 = T.Button2 }, 0.2, 2)
+						else
+							TweenProperty(TogFrame, { BackgroundColor3 = T.Button1 }, 0.2, 2)
+						end
 					end
 				end
-
 				UpdateToggleVisual(State)
 
 				BackToggle.MouseEnter:Connect(function()
@@ -1615,7 +1664,6 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 					end
 					TweenProperty(TogStroke, { Color = T.StrokeHover }, 0.2, 2)
 				end)
-
 				BackToggle.MouseLeave:Connect(function()
 					focused = false
 					if State then
@@ -1625,7 +1673,6 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 					end
 					TweenProperty(TogStroke, { Color = T.Stroke }, 0.2, 2)
 				end)
-
 				BackToggle.MouseButton1Click:Connect(function()
 					State = not State
 					UpdateToggleVisual(State)
@@ -1633,18 +1680,15 @@ function Meow:CreateLib(title, themeName, saveManagerName)
 				end)
 
 				local toggleObj = { Frame = ControlFrame }
-
 				function toggleObj:Set(value)
 					if State == value then return end
 					State = value
 					UpdateToggleVisual(State)
 					if callback then callback(State) end
 				end
-
 				function toggleObj:Get()
 					return State
 				end
-
 				return toggleObj
 			end
 
